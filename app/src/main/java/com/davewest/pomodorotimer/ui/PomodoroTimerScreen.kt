@@ -16,18 +16,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,13 +53,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.davewest.pomodorotimer.model.Phase
 import com.davewest.pomodorotimer.R
 import com.davewest.pomodorotimer.ui.theme.DarkColorScheme
 import com.davewest.pomodorotimer.ui.theme.LightColorScheme
 import com.davewest.pomodorotimer.ui.theme.Typography
 import com.davewest.pomodorotimer.viewmodel.PomodoroViewModel
+import org.koin.androidx.compose.koinViewModel
 
 // Define Circle Colors
 val workColor = Color(0xFF4CAF50)
@@ -66,7 +70,9 @@ val breakColor = Color(0xFFF44336)
  */
 @Composable
 fun PomodoroTimerScreen(
-    viewModel: PomodoroViewModel = viewModel()
+    onNavigateToSettings: () -> Unit = {},
+    // Get ViewModel from Koin
+    viewModel: PomodoroViewModel = koinViewModel()
 ) {
     val context = LocalContext.current
 
@@ -147,11 +153,21 @@ fun PomodoroTimerScreen(
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+    Box(
+        modifier = Modifier.fillMaxSize()
     ) {
+        IconButton(
+            onClick = onNavigateToSettings,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "Settings",
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
         PreTimerUI(viewModel)
         Spacer(modifier = Modifier.height(64.dp))
 
@@ -170,18 +186,28 @@ private fun PreTimerUI(
     val cycleCount by viewModel.cycleCount.collectAsState()
     val cyclesBeforeLongBreak = viewModel.cyclesBeforeLongBreak
 
-    Text(
-        text = when (phase) {
-            Phase.WORK -> "Work"
+    val phaseText = remember(phase) {
+        when (phase) {
+            Phase.WORK        -> "Work"
             Phase.SHORT_BREAK -> "Short Break"
-            Phase.LONG_BREAK -> "Long Break"
-        },
+            Phase.LONG_BREAK  -> "Long Break"
+        }
+    }
+    Text(
+        text = phaseText,
         fontSize = 56.sp,
         fontWeight = FontWeight.Bold
     )
     Spacer(modifier = Modifier.height(12.dp))
+    val cyclesText = remember(phase, cycleCount, cyclesBeforeLongBreak) {
+        if (phase == Phase.WORK) {
+            "${cyclesBeforeLongBreak - cycleCount} cycle${if (cyclesBeforeLongBreak - cycleCount != 1) "s" else ""} until a long break"
+        } else {
+            " "
+        }
+    }
     Text(
-        text = if (phase == Phase.WORK) "${cyclesBeforeLongBreak - cycleCount} cycle${if (cyclesBeforeLongBreak - cycleCount != 1) "s" else ""} until a long break" else " ",
+        text = cyclesText,
         fontSize = 24.sp,
         fontWeight = FontWeight.Bold
     )
@@ -196,7 +222,9 @@ private fun PhaseCircleWithTimer(
     ringGap: Dp = 12.dp
 ) {
     val phase by viewModel.phase.collectAsState()
-    val circleColor = if (phase == Phase.WORK) workColor else breakColor
+    val circleColor = remember(phase) {
+        if (phase == Phase.WORK) workColor else breakColor
+    }
 
     Box(
         modifier = modifier.size(outerSize),
@@ -291,13 +319,16 @@ private fun PostTimerUI(
     Row(
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        val buttonText = remember(isRunning) {
+            if (isRunning) "Pause" else "Start"
+        }
         Button(
             onClick = { viewModel.startPause() },
             modifier = Modifier
                 .defaultMinSize(minWidth = 120.dp, minHeight = 56.dp)
         ) {
             Text(
-                text = if (isRunning) "Pause" else "Start",
+                text = buttonText,
                 fontSize = 20.sp
             )
         }

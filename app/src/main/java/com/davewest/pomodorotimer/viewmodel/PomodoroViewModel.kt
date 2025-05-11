@@ -3,20 +3,40 @@ package com.davewest.pomodorotimer.viewmodel
 import android.os.CountDownTimer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.davewest.pomodorotimer.data.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import com.davewest.pomodorotimer.model.Phase
 import com.davewest.pomodorotimer.model.PomodoroConfig
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
  * ViewModel for the Pomodoro timer logic and state.
  */
 class PomodoroViewModel (
-    private val config: PomodoroConfig = PomodoroConfig()
+    private val repository: SettingsRepository
 ) : ViewModel() {
+
+    val settings: StateFlow<PomodoroConfig> = repository.settingsFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = PomodoroConfig()
+        )
+
+    init {
+        viewModelScope.launch {
+            repository.settingsFlow.collect { config ->
+                // Apply initial settings
+                currentIntervalSec = config.workDurationSec
+                _secondsLeft.value = config.workDurationSec
+            }
+        }
+    }
 
     val cyclesBeforeLongBreak: Int = config.cyclesBeforeLongBreak
     private var currentIntervalSec: Long = config.workDurationSec
